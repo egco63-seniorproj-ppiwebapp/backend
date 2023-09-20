@@ -14,7 +14,7 @@ class Database(models.Model):
 
     # hn = models.CharField(max_length=16)
     name = models.CharField(max_length=32, unique=True)
-    link = models.URLField(max_length=256, unique=True, null=True)
+    link = models.CharField(max_length=256, unique=True, null=True)
     stat = models.CharField(max_length=1, choices=STATUS, null=True)
     side = models.CharField(max_length=1, choices=SIDE, null=True)
     # level = models.IntegerField(choices=LEVEL)
