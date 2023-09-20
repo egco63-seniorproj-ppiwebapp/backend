@@ -15,6 +15,10 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth import logout
 import os
 import cv2
+import io
+from imageio import imread
+import base64
+
 
 _path = Path(__file__, '..').resolve()
 # Create your views here.
@@ -184,16 +188,34 @@ def logout_api(request):
 
 @login_required
 def upload_file(request):
+    received_json_data= json.loads(request.body)
     gauth = GoogleAuth()
     scope = ["https://www.googleapis.com/auth/drive"]
     _path = os.path.dirname(__file__)
     gauth.credentials = ServiceAccountCredentials.from_json_keyfile_name(_path+'\\credential.json', scope)
     drive = GoogleDrive(gauth)
-    file_name = request.POST['name']
+    file_name = received_json_data['file_name']+'.jpg'
     _file = drive.CreateFile({'parents':[{'id':'1IYdmr-oWqKKCjq-RsjBbS9kEgcnY_G4R'}],'title':f'{file_name}', 'mimeType':'image/jpeg'})
-    img = request.POST['img']
-    cv2.imwrite(_path+'\\temp.jpg', img) 
+    img_data = received_json_data['img_file']
+    with open(_path+'\\temp.jpg', "wb") as fh:
+        fh.write(base64.b64decode(img_data))
+        fh.close()
     _file.SetContentFile(_path+'\\temp.jpg')
     _file.Upload()
-    os.remove(_path+'\\temp.jpg')
+    Database.objects.filter(name = received_json_data['file_name']).update(link = str(_file['id']))
     return HttpResponse('Uploaded to GDrive!')
+
+@login_required
+def get_img(request, id:int):
+    instance = Database.objects.filter(id = id)
+    gauth = GoogleAuth()
+    scope = ["https://www.googleapis.com/auth/drive"]
+    _path = os.path.dirname(__file__)
+    gauth.credentials = ServiceAccountCredentials.from_json_keyfile_name(_path+'\\credential.json', scope)
+    drive = GoogleDrive(gauth)
+    file_id = instance[0].__dict__['link']
+    _file = drive.CreateFile({'id':f'{file_id}', 'mimeType':'image/jpeg'})
+    _file.GetContentFile(filename=_path+'\\temp.jpg', mimetype='image/jpeg')
+    with open(_path+'\\temp.jpg', "rb") as f:
+        encoded_image = base64.b64encode(f.read())
+        return HttpResponse(encoded_image)
