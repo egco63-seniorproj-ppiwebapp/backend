@@ -13,7 +13,7 @@ class Database(models.Model):
     # LEVEL = [1,2,3]
 
     # hn = models.CharField(max_length=16)
-    name = models.CharField(max_length=32, unique=True)
+    name = models.CharField(max_length=32, unique=True, null=True)
     link = models.CharField(max_length=256, unique=True, null=True)
     stat = models.CharField(max_length=1, choices=STATUS, null=True)
     side = models.CharField(max_length=1, choices=SIDE, null=True)
@@ -30,3 +30,8 @@ class Database(models.Model):
     def __str__(self):
         return str(self.id)
     
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if not self.name:
+            self.name = str(self.pk).zfill(3)
+            super().save(update_fields=['name'])
