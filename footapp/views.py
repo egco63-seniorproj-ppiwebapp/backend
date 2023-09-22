@@ -155,24 +155,28 @@ def logout_api(request):
 
 @login_required
 def add_collection(request):
+    added_id = []
     received_json_data= json.loads(request.body)
-    gauth = GoogleAuth()
-    scope = ["https://www.googleapis.com/auth/drive"]
-    _path = os.path.dirname(__file__)
-    gauth.credentials = ServiceAccountCredentials.from_json_keyfile_name(_path+'\\credential.json', scope)
-    drive = GoogleDrive(gauth)
-    instance = Database.objects.create()
-    data = instance.__dict__
-    file_name = 'img_'+data['name']+'.jpg'
-    _file = drive.CreateFile({'parents':[{'id':'1IYdmr-oWqKKCjq-RsjBbS9kEgcnY_G4R'}],'title':f'{file_name}', 'mimeType':'image/jpeg'})
-    img_data = received_json_data['img_file']
-    with open(_path+'\\temp.jpg', "wb") as fh:
-        fh.write(base64.b64decode(img_data))
-        fh.close()
-    _file.SetContentFile(_path+'\\temp.jpg')
-    _file.Upload()
-    Database.objects.filter(name = data['name']).update(link = str(_file['id']))
-    return HttpResponse(data['id'])
+    print(type(received_json_data['img_file']))
+    for img_data in received_json_data['img_file']:
+        gauth = GoogleAuth()
+        scope = ["https://www.googleapis.com/auth/drive"]
+        _path = os.path.dirname(__file__)
+        gauth.credentials = ServiceAccountCredentials.from_json_keyfile_name(_path+'\\credential.json', scope)
+        drive = GoogleDrive(gauth)
+        instance = Database.objects.create()
+        data = instance.__dict__
+        file_name = 'img_'+data['name']+'.jpg'
+        _file = drive.CreateFile({'parents':[{'id':'1IYdmr-oWqKKCjq-RsjBbS9kEgcnY_G4R'}],'title':f'{file_name}', 'mimeType':'image/jpeg'})
+        with open(_path+'\\temp.jpg', "wb") as fh:
+            fh.write(base64.b64decode(img_data))
+            fh.close()
+        _file.SetContentFile(_path+'\\temp.jpg')
+        _file.Upload()
+        Database.objects.filter(name = data['name']).update(link = str(_file['id']))
+        added_id.append(data['id'])
+    ids = json.dumps({"ids" : added_id})   
+    return HttpResponse(ids, content_type ="application/json")
 
 @login_required
 def get_img(request, id:int):
