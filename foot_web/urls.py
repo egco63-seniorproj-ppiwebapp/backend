@@ -11,7 +11,7 @@ urlpatterns = [
     path('api/auth',csrf_exempt(auth),name="auth"),
     path('api/logout',csrf_exempt(logout_api),name="logout"),
     path('api/patch_collection',csrf_exempt(patch_collection),name="patch_collection"),
-
+    path('api/session', csrf_exempt(session),name="session"),
     # path('upload_file/',csrf_exempt(upload_file),name="upload_file"),
     path("api/get_img/<int:id>", csrf_exempt(get_img), name = "get_img"),
 

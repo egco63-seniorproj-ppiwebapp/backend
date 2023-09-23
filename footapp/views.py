@@ -24,19 +24,6 @@ _path = Path(__file__, '..').resolve()
 # Create your views here.
 
 
-"""
-
-INPUT/ OUTPUT API
-รับข้อมูลเป็นอะไร
-ข้อมูลออกมาเป็นยังไง
-
-ชื่อรูปภาพตาม id - Finished
-
-TODO: push get_img(ส่งเป็น contenttypr img): Finised
-multiple unlabel image: Finished
-then call patch for the image if the 
-"""
-
 @login_required
 def get_collection(request): #1)
     SORT_OPTION = ['created_date', 'pk', 'name']
@@ -138,6 +125,10 @@ def logout_api(request):
     logout(request)
     return HttpResponse('Logout successfully!')
 
+@login_required
+def session(request):
+    return HttpResponse(request.user.username)
+
 
 
 # @login_required
@@ -157,7 +148,6 @@ def logout_api(request):
 def add_collection(request):
     added_id = []
     received_json_data= json.loads(request.body)
-    print(type(received_json_data['img_file']))
     for img_data in received_json_data['img_file']:
         gauth = GoogleAuth()
         scope = ["https://www.googleapis.com/auth/drive"]
