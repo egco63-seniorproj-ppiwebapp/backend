@@ -1,0 +1,4 @@
+static
+staticfiles
+**/__pycache__
+.vscode
