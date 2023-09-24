@@ -17,6 +17,8 @@ class Database(models.Model):
     link = models.CharField(max_length=256, unique=True, null=True)
     stat = models.CharField(max_length=1, choices=STATUS, null=True)
     side = models.CharField(max_length=1, choices=SIDE, null=True)
+    owner = models.CharField(max_length=32)
+    file_type = models.CharField(max_length=32)
     # level = models.IntegerField(choices=LEVEL)
     '''For frontend checking'''
     deleted = models.BooleanField(default=False)

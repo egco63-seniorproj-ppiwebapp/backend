@@ -39,12 +39,13 @@ login_required = login_required(redirect_field_name=None)
 @login_required
 def get_collection(request):  # 1)
     SORT_OPTION = ["created_date", "pk", "name"]
-    FILTER_BY = [None, "stat", "side"]
+    FILTER_BY = [None, "stat", "side", "both"]
     FILTERS_SIDE = [None, "L", "R"]
     FILTERS_STAT = [None, "N", "H", "F", "U"]
 
     filter_by = request.GET.get("filter_by", None)
-    filter = request.GET.get("filter", None)
+    filter_side = request.GET.get("filter_side", None)
+    filter_stat = request.GET.get("filter_stat", None)
     search = request.GET.get("search", None)
     sort = request.GET.get("sort", "pk")
     ascending = request.GET.get("ascending", True)
@@ -58,8 +59,9 @@ def get_collection(request):  # 1)
     if (
         filter_by not in FILTER_BY
         or sort not in SORT_OPTION
-        or (filter_by == "stat" and filter not in FILTERS_STAT)
-        or (filter_by == "side" and filter not in FILTERS_SIDE)
+        or (filter_by == "stat" and filter_stat not in FILTERS_STAT)
+        or (filter_by == "side" and filter_side not in FILTERS_SIDE)
+        or (filter_by == "both" and (filter_side not in FILTERS_SIDE or filter_stat not in FILTERS_STAT) )
     ):
         return HttpResponseBadRequest()
 
@@ -73,8 +75,12 @@ def get_collection(request):  # 1)
 
     if request.method == "GET":
         instances = Database.objects.all()
-        if filter_by:
-            instances = instances.filter(stat=filter)
+        if filter_by == 'stat':
+            instances = instances.filter(stat=filter_stat)
+        elif filter_by == 'side':
+            instances = instances.filter(side=filter_side)
+        elif filter_by == 'both':
+            instances = instances.filter(side=filter_side, stat=filter_stat)
         if search:
             instances = instances.filter(name__icontains=search)
         try:
@@ -175,20 +181,24 @@ def add_collection(request):
             _path + "\\credential.json", scope
         )
         drive = GoogleDrive(gauth)
-        instance = Database.objects.create()
+        if img_data.startswith("iVBORw0KG"):
+            file_type = 'png'
+        elif img_data.startswith("/9j/4AAQSkZJ"):
+            file_type = 'jpg'
+        file_name = "img_" + data["name"] + f".{file_type}"
+        instance = Database.objects.create(owner = request.user.username, file_type= file_type)
         data = instance.__dict__
-        file_name = "img_" + data["name"] + ".jpg"
         _file = drive.CreateFile(
             {
                 "parents": [{"id": "1IYdmr-oWqKKCjq-RsjBbS9kEgcnY_G4R"}],
                 "title": f"{file_name}",
-                "mimeType": "image/jpeg",
+                "mimeType": f"image/{file_type}",
             }
         )
-        with open(_path + "\\temp.jpg", "wb") as fh:
+        with open(_path + f"\\temp.{file_type}", "wb") as fh:
             fh.write(base64.b64decode(img_data))
             fh.close()
-        _file.SetContentFile(_path + "\\temp.jpg")
+        _file.SetContentFile(_path + f"\\temp.{file_type}")
         _file.Upload()
         Database.objects.filter(name=data["name"]).update(link=str(_file["id"]))
         added_id.append(data["id"])
@@ -209,8 +219,9 @@ def get_img(request, id: int):
     )
     drive = GoogleDrive(gauth)
     file_id = instance[0].__dict__["link"]
-    _file = drive.CreateFile({"id": f"{file_id}", "mimeType": "image/jpeg"})
-    _file.GetContentFile(filename=_path + "\\temp.jpg", mimetype="image/jpeg")
-    with open(_path + "\\temp.jpg", "rb") as f:
+    file_type = instance[0].__dict__["file_type"]
+    _file = drive.CreateFile({"id": f"{file_id}", "mimeType": f"image/{file_type}"})
+    _file.GetContentFile(filename=_path + f"\\temp.{file_type}", mimetype=f"image/{file_type}")
+    with open(_path + f"\\temp.{file_type}", "rb") as f:
         img = f.read()
-        return HttpResponse(img, content_type="image/jpeg")
+        return HttpResponse(img, content_type=f"image/{file_type}")
