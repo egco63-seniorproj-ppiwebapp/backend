@@ -1,8 +1,9 @@
 from django.shortcuts import render
 from django.views.generic import View
 from footapp.models import Database
+from django.views.decorators.cache import cache_page
 from django.core import serializers
-from django.http import JsonResponse
+from django.http import HttpRequest, JsonResponse
 from django.http import HttpResponse, HttpResponseForbidden, HttpResponseBadRequest
 import json
 from django.utils import timezone
@@ -22,6 +23,17 @@ import base64
 
 _path = Path(__file__, "..").resolve()
 # Create your views here.
+
+login_required = login_required(redirect_field_name=None)
+
+
+# def login_required(handler_func):
+#     def decorator(request, *args, **kwargs):
+#         if not request.user.is_authenticated:
+#             return HttpResponseForbidden()
+
+#         return handler_func(request, *args, **kwargs)
+#     return decorator
 
 
 @login_required
@@ -129,9 +141,12 @@ def logout_api(request):
     return HttpResponse("Logout successfully!")
 
 
-@login_required
+# @login_required
 def session(request):
-    return HttpResponse(request.user.username)
+    if request.user.is_authenticated:
+        return HttpResponse(request.user.username)
+
+    return HttpResponseForbidden()
 
 
 # @login_required
@@ -183,6 +198,7 @@ def add_collection(request):
 
 
 @login_required
+@cache_page(60*60*24)
 def get_img(request, id: int):
     instance = Database.objects.filter(id=id)
     gauth = GoogleAuth()
