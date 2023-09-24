@@ -19,6 +19,7 @@ import cv2
 import io
 from imageio import imread
 import base64
+from django.db.models import Q
 
 
 _path = Path(__file__, "..").resolve()
@@ -35,6 +36,7 @@ login_required = login_required(redirect_field_name=None)
 #         return handler_func(request, *args, **kwargs)
 #     return decorator
 
+
 def serialize_data_instances(instances):
     data = serializers.serialize("json", instances)
     data = json.loads(data)
@@ -46,15 +48,12 @@ def serialize_data_instances(instances):
 
 
 @login_required
-def get_collection(request):  # 1)
+def get_collection(request: HttpRequest):  # 1)
     SORT_OPTION = ["created_date", "pk", "name"]
-    FILTER_BY = [None, "stat", "side", "both"]
-    FILTERS_SIDE = [None, "L", "R"]
-    FILTERS_STAT = [None, "N", "H", "F", "U"]
+    FILTERS_SIDE = ["L", "R"]
+    FILTERS_STAT = ["N", "H", "F", "U"]
 
-    filter_by = request.GET.get("filter_by", None)
-    filter_side = request.GET.get("filter_side", None)
-    filter_stat = request.GET.get("filter_stat", None)
+    filter = request.GET.getlist("filter", None)
     search = request.GET.get("search", None)
     sort = request.GET.get("sort", "pk")
     ascending = json.loads(request.GET.get("ascending", True))
@@ -65,51 +64,66 @@ def get_collection(request):  # 1)
     except:
         return HttpResponseBadRequest()
 
-    if (
-        filter_by not in FILTER_BY
-        or sort not in SORT_OPTION
-        or (filter_by == "stat" and filter_stat not in FILTERS_STAT)
-        or (filter_by == "side" and filter_side not in FILTERS_SIDE)
-        or (filter_by == "both" and (filter_side not in FILTERS_SIDE or filter_stat not in FILTERS_STAT) )
-    ):
+    # Verify filters
+    for i in filter:
+        if i not in (FILTERS_SIDE + FILTERS_STAT):
+            return HttpResponseBadRequest()
+
+    # Verify sort
+    if sort not in SORT_OPTION:
         return HttpResponseBadRequest()
 
+    # Correct start index
     if start < 0:
         start = 0
 
     if not ascending:
         sort = "-" + sort
 
-    # print((start, end), sort)
-    print(search, sort, filter_by, filter, type(ascending))
-
     if request.method == "GET":
         instances = Database.objects.all()
-        if filter_by == 'stat':
-            instances = instances.filter(stat=filter_stat)
-        elif filter_by == 'side':
-            instances = instances.filter(side=filter_side)
-        elif filter_by == 'both':
-            instances = instances.filter(side=filter_side, stat=filter_stat)
+
+        # Create Q Filters
+        filterQ = []
+        if len(filter) > 0:  # stat & side filter
+            for f in filter:
+                if f in FILTERS_STAT:
+                    filterQ += [Q(stat=f)]
+                    if f == "U":
+                        filterQ += [Q(stat=None)]
+                elif f in FILTERS_SIDE:
+                    filterQ += [Q(side=f)]
+
         if search:
-            instances = instances.filter(name__icontains=search)
+            filterQ += [Q(name__icontains=search)]
+
+        if len(filterQ) > 0:
+            # Combine filters
+            combinedFilter = filterQ.pop()
+            for i in filterQ:
+                combinedFilter |= i
+
+            # Apply filters
+            instances = instances.filter(combinedFilter)
+
         try:
             instances = instances.order_by(sort)[start:end]
         except:
             instances = instances.order_by(sort)[start:]
+
         data = serialize_data_instances(instances)
         return HttpResponse(data, content_type="application/json")
 
 
 @login_required
-def get_collection_by_id(request, id):
+def get_collection_by_id(request: HttpRequest, id):
     instance = Database.objects.filter(id=id)
     data = serialize_data_instances(instance)
     return HttpResponse(data, content_type="application/json")
 
 
 @login_required
-def patch_collection(request):  # 2)
+def patch_collection(request: HttpRequest):  # 2)
     if request.method == "PATCH":
         try:
             received_json_data = json.loads(request.body)
@@ -130,7 +144,7 @@ def patch_collection(request):  # 2)
             return HttpResponseBadRequest()
 
 
-def auth(request):  # 3)
+def auth(request: HttpRequest):  # 3)
     if request.method == "POST":
         received_json_data = json.loads(request.body)
         username = received_json_data["username"]
@@ -147,13 +161,13 @@ def auth(request):  # 3)
 
 
 @login_required
-def logout_api(request):
+def logout_api(request: HttpRequest):
     logout(request)
     return HttpResponse("Logout successfully!")
 
 
 # @login_required
-def session(request):
+def session(request: HttpRequest):
     if request.user.is_authenticated:
         return HttpResponse(request.user.username)
 
@@ -175,7 +189,7 @@ def session(request):
 
 
 @login_required
-def add_collection(request):
+def add_collection(request: HttpRequest):
     added_id = []
     received_json_data = json.loads(request.body)
     for img_data in received_json_data["img_file"]:
@@ -187,11 +201,13 @@ def add_collection(request):
         )
         drive = GoogleDrive(gauth)
         if img_data.startswith("iVBORw0KG"):
-            file_type = 'png'
+            file_type = "png"
         elif img_data.startswith("/9j/4AAQSkZJ"):
-            file_type = 'jpg'
+            file_type = "jpg"
         file_name = "img_" + data["name"] + f".{file_type}"
-        instance = Database.objects.create(owner = request.user.username, file_type= file_type)
+        instance = Database.objects.create(
+            owner=request.user.username, file_type=file_type
+        )
         data = instance.__dict__
         _file = drive.CreateFile(
             {
@@ -213,8 +229,8 @@ def add_collection(request):
 
 
 @login_required
-@cache_page(60*60*24)
-def get_img(request, id: int):
+@cache_page(60 * 60 * 24)
+def get_img(request: HttpRequest, id: int):
     instance = Database.objects.filter(id=id)
     gauth = GoogleAuth()
     scope = ["https://www.googleapis.com/auth/drive"]
@@ -226,7 +242,9 @@ def get_img(request, id: int):
     file_id = instance[0].__dict__["link"]
     file_type = instance[0].__dict__["file_type"]
     _file = drive.CreateFile({"id": f"{file_id}", "mimeType": f"image/{file_type}"})
-    _file.GetContentFile(filename=_path + f"\\temp.{file_type}", mimetype=f"image/{file_type}")
+    _file.GetContentFile(
+        filename=_path + f"\\temp.{file_type}", mimetype=f"image/{file_type}"
+    )
     with open(_path + f"\\temp.{file_type}", "rb") as f:
         img = f.read()
         return HttpResponse(img, content_type=f"image/{file_type}")
