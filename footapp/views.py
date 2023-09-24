@@ -35,6 +35,15 @@ login_required = login_required(redirect_field_name=None)
 #         return handler_func(request, *args, **kwargs)
 #     return decorator
 
+def serialize_data_instances(instances):
+    data = serializers.serialize("json", instances)
+    data = json.loads(data)
+    for entry in data:
+        entry["fields"]["id"] = entry["pk"]
+    data = list(i["fields"] for i in data)
+    data = json.dumps(data)
+    return data
+
 
 @login_required
 def get_collection(request):  # 1)
@@ -47,7 +56,7 @@ def get_collection(request):  # 1)
     filter = request.GET.get("filter", None)
     search = request.GET.get("search", None)
     sort = request.GET.get("sort", "pk")
-    ascending = request.GET.get("ascending", True)
+    ascending = json.loads(request.GET.get("ascending", True))
 
     try:
         start = int(request.GET.get("start"))
@@ -70,6 +79,7 @@ def get_collection(request):  # 1)
         sort = "-" + sort
 
     # print((start, end), sort)
+    print(search, sort, filter_by, filter, type(ascending))
 
     if request.method == "GET":
         instances = Database.objects.all()
@@ -81,19 +91,14 @@ def get_collection(request):  # 1)
             instances = instances.order_by(sort)[start:end]
         except:
             instances = instances.order_by(sort)[start:]
-        data = serializers.serialize("json", instances)
-        data = json.loads(data)
-        for entry in data:
-            entry["fields"]["id"] = entry["pk"]
-        data = list(i["fields"] for i in data)
-        data = json.dumps(data)
+        data = serialize_data_instances(instances)
         return HttpResponse(data, content_type="application/json")
 
 
 @login_required
 def get_collection_by_id(request, id):
     instance = Database.objects.filter(id=id)
-    data = serializers.serialize("json", instance)
+    data = serialize_data_instances(instance)
     return HttpResponse(data, content_type="application/json")
 
 
