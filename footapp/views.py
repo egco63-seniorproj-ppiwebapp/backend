@@ -200,15 +200,19 @@ def add_collection(request: HttpRequest):
             _path + "\\credential.json", scope
         )
         drive = GoogleDrive(gauth)
-        if img_data.startswith("iVBORw0KG"):
+        decoded_img = base64.b64decode(img_data)
+
+        file_type = "jpeg"
+        if decoded_img.startswith(bytes.fromhex("89504E470D0A1A0A")):
             file_type = "png"
-        elif img_data.startswith("/9j/4AAQSkZJ"):
-            file_type = "jpg"
-        file_name = "img_" + data["name"] + f".{file_type}"
+        elif decoded_img.startswith(bytes.fromhex("FFD8FFE0")):
+            file_type = "jpeg"
+
         instance = Database.objects.create(
             owner=request.user.username, file_type=file_type
         )
         data = instance.__dict__
+        file_name = "img_" + data["name"] + f".{file_type}"
         _file = drive.CreateFile(
             {
                 "parents": [{"id": "1IYdmr-oWqKKCjq-RsjBbS9kEgcnY_G4R"}],
@@ -240,7 +244,7 @@ def get_img(request: HttpRequest, id: int):
     )
     drive = GoogleDrive(gauth)
     file_id = instance[0].__dict__["link"]
-    file_type = instance[0].__dict__["file_type"]
+    file_type = instance[0].__dict__["file_type"] or "jpeg"
     _file = drive.CreateFile({"id": f"{file_id}", "mimeType": f"image/{file_type}"})
     _file.GetContentFile(
         filename=_path + f"\\temp.{file_type}", mimetype=f"image/{file_type}"
