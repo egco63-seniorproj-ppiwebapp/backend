@@ -187,7 +187,6 @@ def session(request: HttpRequest):
 
 #     return HttpResponse('We got request')
 
-
 @login_required
 def add_collection(request: HttpRequest):
     added_id = []
@@ -252,3 +251,33 @@ def get_img(request: HttpRequest, id: int):
     with open(_path + f"\\temp.{file_type}", "rb") as f:
         img = f.read()
         return HttpResponse(img, content_type=f"image/{file_type}")
+
+
+@login_required
+@cache_page(60 * 60 * 24)
+def summary(request):
+    username = request.user.username
+    instances = Database.objects.all()
+    all_count = instances.count()
+    user_count = instances.filter(owner=username).count()
+    all_label_count = {}
+    user_label_count = {}
+    for label in ["U", "N", "H", "F"]:
+        all_label_count[label] = instances.filter(stat=label).count()
+        user_label_count[label] = instances.filter(stat=label, owner=username).count()
+    all_label_month_count = []
+    user_label_month_count = []
+    for month in range(1, 13):
+        all_label_month_count.append(instances.filter(created_date__month=month).count())
+        user_label_month_count.append(instances.filter(created_date__month=month, owner=username).count())
+
+    return_data = {
+        "all_count": all_count,
+        "user_count": user_count,
+        "all_label_count": all_label_count,
+        "user_label_count": user_label_count,
+        "all_label_month_count": all_label_month_count,
+        "user_label_month_count": user_label_month_count,
+    }
+    json_data = json.dumps(return_data)
+    return HttpResponse(json_data, content_type='application/json')
