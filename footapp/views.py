@@ -255,8 +255,7 @@ def get_img(request: HttpRequest, id: int):
 
 
 @login_required
-@cache_page(60 * 60 * 24)
-def summary(request):
+def summary(request: HttpRequest):
     username = request.user.username
     instances = Database.objects.all()
     all_count = instances.count()
@@ -268,9 +267,10 @@ def summary(request):
         user_label_count[label] = instances.filter(stat=label, owner=username).count()
     all_label_month_count = []
     user_label_month_count = []
-    for month in range(1, 13):
-        all_label_month_count.append(instances.filter(created_date__month=month, created_date__year=datetime.date.today().year).count())
-        user_label_month_count.append(instances.filter(created_date__month=month, owner=username, created_date__year=datetime.date.today().year).count())
+    # ! NotImplemented
+    # for month in range(1, 13):
+    #     all_label_month_count.append(instances.filter(created_date__month=month, created_date__year=datetime.date.today().year).count())
+    #     user_label_month_count.append(instances.filter(created_date__month=month, owner=username, created_date__year=datetime.date.today().year).count())
 
     return_data = {
         "all_count": all_count,
