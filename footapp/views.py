@@ -20,6 +20,7 @@ import io
 from imageio import imread
 import base64
 from django.db.models import Q
+import datetime
 
 
 _path = Path(__file__, "..").resolve()
@@ -268,8 +269,8 @@ def summary(request):
     all_label_month_count = []
     user_label_month_count = []
     for month in range(1, 13):
-        all_label_month_count.append(instances.filter(created_date__month=month).count())
-        user_label_month_count.append(instances.filter(created_date__month=month, owner=username).count())
+        all_label_month_count.append(instances.filter(created_date__month=month, created_date__year=datetime.date.today().year).count())
+        user_label_month_count.append(instances.filter(created_date__month=month, owner=username, created_date__year=datetime.date.today().year).count())
 
     return_data = {
         "all_count": all_count,
