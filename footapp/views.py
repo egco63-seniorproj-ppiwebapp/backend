@@ -58,6 +58,7 @@ def get_collection(request: HttpRequest):  # 1)
     search = request.GET.get("search", None)
     sort = request.GET.get("sort", "pk")
     ascending = json.loads(request.GET.get("ascending", True))
+    username = request.user.username
 
     try:
         start = int(request.GET.get("start"))
@@ -90,19 +91,21 @@ def get_collection(request: HttpRequest):  # 1)
             for f in filter:
                 if f in FILTERS_STAT:
                     filterQ += [Q(stat=f)]
-                    if f == "U":
-                        filterQ += [Q(stat=None)]
+                    # if f == "U":
+                    #     filterQ += [Q(stat=None)]
                 elif f in FILTERS_SIDE:
                     filterQ += [Q(side=f)]
 
         if search:
             filterQ += [Q(name__icontains=search)]
 
+        filterQ += [Q(owner=username)]
+
         if len(filterQ) > 0:
             # Combine filters
             combinedFilter = filterQ.pop()
             for i in filterQ:
-                combinedFilter |= i
+                combinedFilter &= i
 
             # Apply filters
             instances = instances.filter(combinedFilter)
@@ -118,7 +121,7 @@ def get_collection(request: HttpRequest):  # 1)
 
 @login_required
 def get_collection_by_id(request: HttpRequest, id):
-    instance = Database.objects.filter(id=id)
+    instance = Database.objects.filter(id=id, owner=request.user.username)
     data = serialize_data_instances(instance)
     return HttpResponse(data, content_type="application/json")
 
@@ -187,6 +190,7 @@ def session(request: HttpRequest):
 #             return HttpResponse('POST successful BUT DID NOT PUT IN DATABASE!!')
 
 #     return HttpResponse('We got request')
+
 
 @login_required
 def add_collection(request: HttpRequest):
@@ -265,8 +269,8 @@ def summary(request: HttpRequest):
     for label in ["U", "N", "H", "F"]:
         all_label_count[label] = instances.filter(stat=label).count()
         user_label_count[label] = instances.filter(stat=label, owner=username).count()
-    all_label_month_count = []
-    user_label_month_count = []
+    all_label_month_count = [0] * 12
+    user_label_month_count = [0] * 12
     # ! NotImplemented
     # for month in range(1, 13):
     #     all_label_month_count.append(instances.filter(created_date__month=month, created_date__year=datetime.date.today().year).count())
@@ -281,4 +285,4 @@ def summary(request: HttpRequest):
         "user_label_month_count": user_label_month_count,
     }
     json_data = json.dumps(return_data)
-    return HttpResponse(json_data, content_type='application/json')
+    return HttpResponse(json_data, content_type="application/json")
