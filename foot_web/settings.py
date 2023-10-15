@@ -10,9 +10,14 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/4.2/ref/settings/
 """
 
+import logging
 from pathlib import Path
 import os
 from pathlib import Path
+import dotenv
+import json
+
+dotenv.load_dotenv()
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -22,17 +27,17 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/4.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = "django-insecure-ny%7=%g*8^v=nc780*x^d6fj1h7)b^opr2u#m+ma+&aiwr%v5r"
+SECRET_KEY = os.getenv("SECRET_KEY") or "test-key"
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.getenv("DEBUG").lower() == "true"
 
-ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
-    "[::1]",
-    # "price-bw.at.ply.gg",
-]
+ALLOWED_HOSTS = ["localhost", "127.0.0.1", "[::1]"]
+try:
+    with open("hosts.json", "r") as fp:
+        ALLOWED_HOSTS = json.load(fp)
+except:
+    logging.warn("hosts.json cannot be loaded.")
 
 # CORS_ALLOWED_ORIGINS = ["*"]
 
@@ -89,8 +94,18 @@ WSGI_APPLICATION = "foot_web.wsgi.application"
 
 DATABASES = {
     "default": {
-        "ENGINE": "djongo",
-        "NAME": "foot-djongo-db",
+        # "ENGINE": "djongo",
+        # "NAME": "foot-djongo-db",
+        # "CLIENT": {
+        #     "host": "localhost",
+        #     "port": 27017,
+        # },
+        "ENGINE": "django.db.backends.postgresql",
+        "NAME": os.getenv("DB_NAME") or "testdb",
+        "USER": os.getenv("DB_USER") or "testuser",
+        "PASSWORD": os.getenv("DB_PASSWORD") or "testpass",
+        "HOST": os.getenv("DB_HOST") or "localhost",
+        "PORT": os.getenv("DB_PORT") or 5432,
     }
 }
 
@@ -142,3 +157,12 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 DATA_UPLOAD_MAX_MEMORY_SIZE = (2**20) * 52  # 52MB
 
 LOGIN_URL = "/login"
+
+# Security
+if not DEBUG:
+    CSRF_COOKIE_SECURE = True
+    SESSION_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
