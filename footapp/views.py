@@ -208,7 +208,7 @@ def add_collection(request: HttpRequest):
         scope = ["https://www.googleapis.com/auth/drive"]
         _path = os.path.dirname(__file__)
         gauth.credentials = ServiceAccountCredentials.from_json_keyfile_name(
-            _path + "\\credential.json", scope
+            _path + "credential.json", scope
         )
         drive = GoogleDrive(gauth)
         decoded_img = base64.b64decode(img_data)
@@ -231,10 +231,10 @@ def add_collection(request: HttpRequest):
                 "mimeType": f"image/{file_type}",
             }
         )
-        with open(_path + f"\\temp.{file_type}", "wb") as fh:
+        with open(_path + f"temp.{file_type}", "wb") as fh:
             fh.write(base64.b64decode(img_data))
             fh.close()
-        _file.SetContentFile(_path + f"\\temp.{file_type}")
+        _file.SetContentFile(_path + f"temp.{file_type}")
         _file.Upload()
         Database.objects.filter(name=data["name"]).update(link=str(_file["id"]))
         added_id.append(data["id"])
@@ -251,16 +251,16 @@ def get_img(request: HttpRequest, id: int):
     scope = ["https://www.googleapis.com/auth/drive"]
     _path = os.path.dirname(__file__)
     gauth.credentials = ServiceAccountCredentials.from_json_keyfile_name(
-        _path + "\\credential.json", scope
+        os.path.join(_path, "credential.json"), scope
     )
     drive = GoogleDrive(gauth)
     file_id = instance[0].__dict__["link"]
     file_type = instance[0].__dict__["file_type"] or "jpeg"
     _file = drive.CreateFile({"id": f"{file_id}", "mimeType": f"image/{file_type}"})
     _file.GetContentFile(
-        filename=_path + f"\\temp.{file_type}", mimetype=f"image/{file_type}"
+        filename=_path + f"temp.{file_type}", mimetype=f"image/{file_type}"
     )
-    with open(_path + f"\\temp.{file_type}", "rb") as f:
+    with open(_path + f"temp.{file_type}", "rb") as f:
         img = f.read()
         return HttpResponse(img, content_type=f"image/{file_type}")
 
