@@ -252,7 +252,7 @@ def get_img(request: HttpRequest, id: int):
     scope = ["https://www.googleapis.com/auth/drive"]
     _path = os.path.dirname(__file__)
     gauth.credentials = ServiceAccountCredentials.from_json_keyfile_name(
-        os.path.join(_path, "credential.json", scope
+        os.path.join(_path, "credential.json"), scope
     )
     drive = GoogleDrive(gauth)
     file_id = instance[0].__dict__["link"]
