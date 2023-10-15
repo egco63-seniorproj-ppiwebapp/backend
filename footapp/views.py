@@ -129,7 +129,7 @@ def get_collection(request: HttpRequest):  # 1)
 
 @login_required
 def get_collection_by_id(request: HttpRequest, id):
-    instance = Database.objects.filter(id=id, owner=request.user.username)
+    instance = Database.objects.filter(deleted__in=[False], id=id, owner=request.user.username)
     data = serialize_data_instances(instance)
     return HttpResponse(data, content_type="application/json")
 
@@ -272,17 +272,17 @@ def summary(request: HttpRequest):
     username = request.user.username
     instances = Database.objects.all()
     all_count = instances.count()
-    user_count = instances.filter(owner=username).count()
+    user_count = instances.filter(deleted__in=[False], owner=username).count()
     all_label_count = {}
     user_label_count = {}
     for label in ["U", "N", "H", "F"]:
-        all_label_count[label] = instances.filter(stat=label).count()
-        user_label_count[label] = instances.filter(stat=label, owner=username).count()
+        all_label_count[label] = instances.filter(deleted__in=[False], stat=label).count()
+        user_label_count[label] = instances.filter(deleted__in=[False], stat=label, owner=username).count()
     all_label_month_count = []
     user_label_month_count = []
     for month in range(1, 13):
-        all_label_month_count.append(instances.filter(created_date__month=month, created_date__year=datetime.date.today().year).count())
-        user_label_month_count.append(instances.filter(created_date__month=month, owner=username, created_date__year=datetime.date.today().year).count())
+        all_label_month_count.append(instances.filter(deleted__in=[False], created_date__month=month, created_date__year=datetime.date.today().year).count())
+        user_label_month_count.append(instances.filter(deleted__in=[False], created_date__month=month, owner=username, created_date__year=datetime.date.today().year).count())
 
     return_data = {
         "all_count": all_count,
