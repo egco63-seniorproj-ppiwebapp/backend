@@ -276,12 +276,11 @@ def summary(request: HttpRequest):
     for label in ["U", "N", "H", "F"]:
         all_label_count[label] = instances.filter(stat=label).count()
         user_label_count[label] = instances.filter(stat=label, owner=username).count()
-    all_label_month_count = [0] * 12
-    user_label_month_count = [0] * 12
-    # ! NotImplemented
-    # for month in range(1, 13):
-    #     all_label_month_count.append(instances.filter(created_date__month=month, created_date__year=datetime.date.today().year).count())
-    #     user_label_month_count.append(instances.filter(created_date__month=month, owner=username, created_date__year=datetime.date.today().year).count())
+    all_label_month_count = []
+    user_label_month_count = []
+    for month in range(1, 13):
+        all_label_month_count.append(instances.filter(created_date__month=month, created_date__year=datetime.date.today().year).count())
+        user_label_month_count.append(instances.filter(created_date__month=month, owner=username, created_date__year=datetime.date.today().year).count())
 
     return_data = {
         "all_count": all_count,
