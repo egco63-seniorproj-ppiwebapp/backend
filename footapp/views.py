@@ -86,29 +86,37 @@ def get_collection(request: HttpRequest):  # 1)
         instances = Database.objects.all()
 
         # Create Q Filters
-        filterQ = []
+        filterQOr = []
+        filterQAnd = []
         if len(filter) > 0:  # stat & side filter
             for f in filter:
+                print(f)
                 if f in FILTERS_STAT:
-                    filterQ += [Q(stat=f)]
-                    # if f == "U":
-                    #     filterQ += [Q(stat=None)]
+                    filterQOr += [Q(stat=f)]
+                    if f == "U":
+                        filterQOr += [Q(stat=None)]
                 elif f in FILTERS_SIDE:
-                    filterQ += [Q(side=f)]
+                    filterQAnd += [Q(side=f)]
 
         if search:
-            filterQ += [Q(name__icontains=search)]
+            filterQAnd += [Q(name__icontains=search)]
 
-        filterQ += [Q(owner=username)]
+        filterQAnd += [Q(owner=username)]
 
-        if len(filterQ) > 0:
+        if len(filterQOr) > 0:
+            combinedQOr = filterQOr.pop()
+            for i in filterQOr:
+                combinedQOr |= i
+            filterQAnd += [combinedQOr]
+
+        if len(filterQAnd) > 0:
             # Combine filters
-            combinedFilter = filterQ.pop()
-            for i in filterQ:
+            combinedFilter = filterQAnd.pop()
+            for i in filterQAnd:
                 combinedFilter &= i
 
             # Apply filters
-            instances = instances.filter(combinedFilter)
+            instances = instances.filter(combinedFilter, deleted__in=[False])
 
         try:
             instances = instances.order_by(sort)[start:end]
@@ -131,16 +139,15 @@ def patch_collection(request: HttpRequest):  # 2)
     if request.method == "PATCH":
         try:
             received_json_data = json.loads(request.body)
-            Database.objects.filter(id=received_json_data["id"]).update(
-                name=received_json_data["name"],
-                stat=received_json_data["stat"],
-                side=received_json_data["side"],
-                remark=received_json_data["remark"],
-                deleted=received_json_data["deleted"],
+            id = received_json_data["id"]
+            del received_json_data["id"]
+            print(received_json_data)
+            Database.objects.filter(id=id).update(
+                **received_json_data,
                 modify_date=timezone.now(),
             )
             if received_json_data["deleted"] == True:
-                Database.objects.filter(id=received_json_data["id"]).update(
+                Database.objects.filter(id=id).update(
                     deleted_date=timezone.now()
                 )
             return HttpResponse("Patch successfully!")
